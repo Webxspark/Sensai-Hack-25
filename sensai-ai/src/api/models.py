@@ -705,3 +705,29 @@ class SaveCodeDraftRequest(BaseModel):
 class CodeDraft(BaseModel):
     id: int
     code: List[LanguageCodeDraft]
+
+class GetOrgAssessmentRequest(BaseModel):
+    org_id: int
+
+class CreateAssessmentRequest(BaseModel):
+    org_id: int
+    role: str
+    skills: str
+    assessment_type: Literal["education", "elimination"]
+    difficulty: Literal["easy", "medium", "hard"]
+    candidates: int
+    questions: str
+
+class DeleteAssessmentRequest(BaseModel):
+    assessment_id: int
+
+class UpdateAssessmentRequest(BaseModel):
+    role: str
+    skills: str
+    assessment_type: Literal["education", "elimination"]
+    difficulty: Literal["easy", "medium", "hard"]
+    candidates: int
+    questions: str
+
+class GetAssessmentByIDRequest(BaseModel):
+    assessment_id: int

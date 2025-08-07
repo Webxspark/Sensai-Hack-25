@@ -27,6 +27,7 @@ from api.config import (
     task_generation_jobs_table_name,
     org_api_keys_table_name,
     code_drafts_table_name,
+    assessments_table_name,
 )
 
 
@@ -461,6 +462,28 @@ async def create_code_drafts_table(cursor):
         f"""CREATE INDEX IF NOT EXISTS idx_code_drafts_question_id ON {code_drafts_table_name} (question_id)"""
     )
 
+async def create_assessments_table(cursor):
+    await cursor.execute(
+        f"""CREATE TABLE IF NOT EXISTS {assessments_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                assessment_role TEXT NOT NULL,
+                assessment_skills TEXT NOT NULL,
+                assessment_type TEXT NOT NULL,
+                assessment_difficulty TEXT NOT NULL,
+                assessment_candidates INTEGER DEFAULT 0 NOT NULL,
+                assessment_questions TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (org_id) REFERENCES {organizations_table_name}(id) ON DELETE CASCADE
+            )"""
+    )
+
+    # useful indexes for faster lookup
+    await cursor.execute(
+        f"""CREATE INDEX IF NOT EXISTS idx_assessment_org_id ON {assessments_table_name} (org_id)"""
+    )
+
+
 
 async def init_db():
     # Ensure the database folder exists
@@ -482,6 +505,10 @@ async def init_db():
             # Database exists and has tables, just check for any missing tables
             if not await check_table_exists(code_drafts_table_name, cursor):
                 await create_code_drafts_table(cursor)
+
+            # Add assessment table migration
+            if not await check_table_exists(assessments_table_name, cursor):
+                await create_assessments_table(cursor)
 
             await conn.commit()
             return
@@ -524,6 +551,8 @@ async def init_db():
             await create_task_generation_jobs_table(cursor)
 
             await create_code_drafts_table(cursor)
+
+            await create_assessments_table(cursor)
 
             await conn.commit()
 
