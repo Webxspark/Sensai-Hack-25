@@ -1,6 +1,5 @@
 from typing import List, Dict, Tuple, Literal
-import secrets
-import hashlib
+import json
 
 from api.utils.db import (
     get_new_db_connection,
@@ -29,7 +28,7 @@ async def get_assessments_by_org_id(org_id: int) -> List[Dict]:
                 "type": row[3],
                 "difficulty": row[4],
                 "candidates": row[5],
-                "questions": row[6],
+                # "questions": row[6],
                 "created_at": row[7],
             }
             for row in await cursor.fetchall()
@@ -107,6 +106,15 @@ async def get_assessment_by_id(assessment_id: int) -> Dict:
         row = await cursor.fetchone()
         if not row:
             raise ValueError("Assessment not found")
+        questions_json = row[7]
+        try:
+            questions = json.loads(questions_json)
+            # If questions is a string (nested JSON), parse it again
+            if isinstance(questions, str):
+                questions = json.loads(questions)
+        except (json.JSONDecodeError, TypeError):
+            questions = questions_json  # Fallback to raw data
+
         return {
             "id": row[0],
             "org_id": row[1],
@@ -115,6 +123,6 @@ async def get_assessment_by_id(assessment_id: int) -> Dict:
             "type": row[4],
             "difficulty": row[5],
             "candidates": row[6],
-            "questions": row[7],
+            "questions": questions,
             "created_at": row[8],
         }

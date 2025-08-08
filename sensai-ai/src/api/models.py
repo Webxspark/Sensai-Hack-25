@@ -716,7 +716,6 @@ class CreateAssessmentRequest(BaseModel):
     assessment_type: Literal["education", "elimination"]
     difficulty: Literal["easy", "medium", "hard"]
     candidates: int
-    questions: str
 
 class DeleteAssessmentRequest(BaseModel):
     assessment_id: int
