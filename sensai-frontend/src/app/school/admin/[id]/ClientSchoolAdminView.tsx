@@ -3,18 +3,14 @@
 import {useState, useEffect, useRef, useCallback} from "react";
 import {Header} from "@/components/layout/header";
 import {
-    Edit,
-    Save,
     Users,
     BookOpen,
     Layers,
     Building,
-    ChevronDown,
     Trash2,
     ExternalLink,
     LaptopMinimalCheck
 } from "lucide-react";
-import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {useSession} from "next-auth/react";
 import CourseCard from "@/components/CourseCard";
@@ -27,6 +23,8 @@ import ConfirmationDialog from "@/components/ConfirmationDialog";
 import {Cohort, TeamMember, Course} from "@/types";
 import AssessmentCard from "@/components/AssessmentCard";
 import AssessmentCreateSheet from "@/components/AssessmentCreateSheet";
+import {IOrgAssessments} from "@/types/assessment";
+import dayjs from "dayjs";
 
 interface School {
     id: number;
@@ -52,6 +50,7 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
     const [isCreateCohortDialogOpen, setIsCreateCohortDialogOpen] = useState(false);
     const [isCreateCourseDialogOpen, setIsCreateCourseDialogOpen] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
+    const [assessments, setAssessments] = useState({} as IOrgAssessments); // Adjust type as needed
     const schoolNameRef = useRef<HTMLHeadingElement>(null);
     // Add state for selected members
     const [selectedMembers, setSelectedMembers] = useState<TeamMember[]>([]);
@@ -83,7 +82,15 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
             setActiveTab(hash as TabType);
         }
     }, []);
-
+    const loadAssessments = useCallback(async () => {
+        // Fetch assessments separately
+        const assessmentsResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/assessments/orgs/${id}`);
+        if (!assessmentsResponse.ok) {
+            throw new Error(`API error: ${assessmentsResponse.status}`);
+        }
+        const assessmentsData: IOrgAssessments = await assessmentsResponse.json();
+        setAssessments(assessmentsData);
+    }, [id])
     // Fetch school data
     useEffect(() => {
         const fetchSchool = async () => {
@@ -117,6 +124,8 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
                 }
                 const coursesData = await coursesResponse.json();
 
+                await loadAssessments();
+
                 // Transform the API response to match the School interface
                 const transformedSchool: School = {
                     id: parseInt(schoolData.id),
@@ -144,7 +153,8 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
         };
 
         fetchSchool();
-    }, [id, router]);
+    }, [id, loadAssessments, router]);
+
 
     // Handle clicking outside the name edit field
     useEffect(() => {
@@ -192,6 +202,20 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
             setIsEditingName(false);
         }
     };
+
+    const handleAssessmentDelete = () => {
+        setLoading(true)
+        loadAssessments()
+            .finally(() => setLoading(false));
+        setToastMessage(
+            {
+                title: 'Assessment deleted',
+                description: 'The assessment has been successfully deleted.',
+                emoji: '✓'
+            }
+        )
+        setShowToast(true)
+    }
 
     const handleInviteMembers = async (emails: string[]) => {
         try {
@@ -458,7 +482,15 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
 
     const handleCreateAssessmentSuccess = () => {
         setIsCreateAssessmentSheetOpen(false);
-        // @TODO: update the state to reflect the new assessment
+        setLoading(true)
+        loadAssessments()
+            .finally(() => setLoading(false));
+        setToastMessage({
+            title: 'Assessment created',
+            description: 'The assessment has been successfully created.',
+            emoji: '✓'
+        })
+        setShowToast(true)
     }
 
     if (loading) {
@@ -678,11 +710,16 @@ export default function ClientSchoolAdminView({id}: { id: string }) {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {school.courses.map(course => (
-                                                    <AssessmentCard key={course.id} course={{
-                                                        id: course.id,
-                                                        title: course.name,
-                                                    }} onDelete={handleCourseDelete}/>
+                                                {assessments.assessments.map(assessment => (
+                                                    <AssessmentCard
+                                                        key={assessment.id}
+                                                        id={assessment.id}
+                                                        title={`${assessment.role} (${dayjs(assessment.created_at).format("DD/MMM/YYYY")})`}
+                                                        skills={assessment.skills}
+                                                        difficulty={assessment.difficulty}
+                                                        orgId={id}
+                                                        onDelete={handleAssessmentDelete}
+                                                    />
                                                 ))}
                                             </div>
                                         </>

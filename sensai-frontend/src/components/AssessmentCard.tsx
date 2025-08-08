@@ -1,24 +1,20 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import ConfirmationDialog from "./ConfirmationDialog";
+import {TDifficultyLevel} from "@/components/AssessmentCreateSheet";
 
-interface CourseCardProps {
-    course: {
-        id: string | number;
-        title: string;
-        role?: string;
-        org_id?: number;
-        cohort_id?: number;
-        org?: {
-            slug: string;
-        };
-    };
-    onDelete?: (courseId: string | number) => void;
+interface AssessmentCardProps {
+    id: string | number;
+    title: string;
+    skills: string;
+    difficulty: TDifficultyLevel;
+    orgId: string | number;
+    onDelete?: (assessmentId: string | number) => void;
 }
 
-export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
+export default function AssessmentCard({ id, orgId, title, skills, difficulty, onDelete }: AssessmentCardProps) {
     const params = useParams();
     const schoolId = params?.id;
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -40,37 +36,18 @@ export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
 
         // Handle string IDs by converting to a number
         let idNumber: number;
-        if (typeof course.id === 'string') {
+        if (typeof id === 'string') {
             // Use string hash code
-            idNumber = Array.from(course.id).reduce(
+            idNumber = Array.from(id).reduce(
                 (hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0
             );
             // Ensure positive number
             idNumber = Math.abs(idNumber);
         } else {
-            idNumber = course.id;
+            idNumber = id;
         }
 
         return colors[idNumber % colors.length];
-    };
-
-    // Determine the correct link path
-    const getLinkPath = () => {
-        // If this is being viewed by a learner, use the school slug path
-        if (course.role && course.role !== 'admin' && course.org?.slug) {
-            // Include course_id and cohort_id as query parameters to help with selection on the school page
-            return `/school/${course.org.slug}?course_id=${course.id}&cohort_id=${course.cohort_id}`;
-        }
-        // If we have an org_id from the API, use that for the school-specific course path
-        else if (course.org_id) {
-            return `/school/admin/${course.org_id}/courses/${course.id}`;
-        }
-        // If we're in a school context, use the school-specific course path
-        else if (schoolId) {
-            return `/school/admin/${schoolId}/courses/${course.id}`;
-        }
-        // Otherwise use the general course path
-        return `/courses/${course.id}`;
     };
 
     // Check if this is an admin view
@@ -87,7 +64,7 @@ export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
         setDeleteError(null);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/courses/${course.id}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/assessments/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
@@ -95,7 +72,7 @@ export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to delete course');
+                throw new Error('Failed to delete assessment');
             }
 
             // Close the dialog after successful deletion
@@ -103,7 +80,7 @@ export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
 
             // Call the onDelete callback if provided
             if (onDelete) {
-                onDelete(course.id);
+                onDelete(id);
             }
 
         } catch (error) {
@@ -116,15 +93,23 @@ export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
 
     return (
         <div className="group relative">
-            <Link href={getLinkPath()} className="block h-full">
+            <Link href={`/school/admin/${orgId}/assessments/${id}`} className="block h-full">
                 <div className={`bg-[#1A1A1A] text-gray-300 rounded-lg p-6 h-full transition-all hover:opacity-90 cursor-pointer border-b-2 ${getBorderColor()} border-opacity-70`}>
-                    <h2 className="text-xl font-light mb-2">{course.title}</h2>
+                    <div className={'flex items-center justify-between'}>
+                        <h2 className="text-xl font-light mb-2">{title}</h2>
+                        <div className={'p-1 rounded-full border-1 border-gray-500 px-3 flex items-center gap-2'}>
+                            {difficulty === 'easy' && <span className="text-green-500 text-sm">Easy</span>}
+                            {difficulty === 'medium' && <span className="text-yellow-500 text-sm">Medium</span>}
+                            {difficulty === 'hard' && <span className="text-red-500 text-sm">Hard</span>}
+                        </div>
+                    </div>
+                    <p className={'text-sm text-gray-400'}>{skills}</p>
                 </div>
             </Link>
             {isAdminView && (
                 <button
                     className="absolute top-3 right-3 p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none cursor-pointer rounded-full hover:bg-gray-800"
-                    aria-label="Delete course"
+                    aria-label="Delete assessment"
                     onClick={handleDeleteClick}
                 >
                     <Trash2 size={18} />
@@ -134,8 +119,8 @@ export default function AssessmentCard({ course, onDelete }: CourseCardProps) {
             {/* Confirmation Dialog */}
             <ConfirmationDialog
                 show={isDeleteConfirmOpen}
-                title="Delete course"
-                message={`Are you sure you want to delete this course? All the modules and tasks will be permanently deleted, any learner with access will lose all their progress and this action is irreversible`}
+                title="Delete assessment"
+                message={`Are you sure you want to delete this assessment? All the modules and tasks will be permanently deleted, any learner with access will lose all their progress and this action is irreversible`}
                 confirmButtonText="Delete"
                 onConfirm={handleDeleteConfirm}
                 onCancel={() => setIsDeleteConfirmOpen(false)}

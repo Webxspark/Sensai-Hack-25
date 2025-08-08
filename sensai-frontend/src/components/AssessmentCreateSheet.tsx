@@ -6,7 +6,7 @@ import {Label} from "@/components/ui/label";
 import {MOCK_getSkillsForRole, MOCK_ROLES} from "@/mocks/roles-skills-mapping";
 import {cn} from "@/lib/utils";
 import {Input} from "@/components/ui/input";
-import {ArrowRight} from "lucide-react";
+import {ArrowRight, LoaderCircle} from "lucide-react";
 
 interface IAssessmentCreateSheetProps {
     open: boolean;
@@ -15,14 +15,15 @@ interface IAssessmentCreateSheetProps {
     onSuccess?: () => void;
 }
 
-type TDifficultyLevel = "easy" | "medium" | "hard";
-type TAssessmentFor = "education" | "elimination"
+export type TDifficultyLevel = "easy" | "medium" | "hard";
+export type TAssessmentFor = "education" | "elimination"
 const AssessmentCreateSheet = ({open, onClose, onSuccess, schoolId}: IAssessmentCreateSheetProps) => {
     const [selectedRole, setSelectedRole] = React.useState<string | null>(null);
     const [selectedDifficulty, setSelectedDifficulty] = React.useState<TDifficultyLevel | null>(null);
     const [selectedAssessmentFor, setSelectedAssessmentFor] = React.useState<TAssessmentFor | null>(null);
     const [selectedSkills, setSelectedSkills] = React.useState<string[]>([]);
     const [expectedCandidates, setExpectedCandidates] = React.useState<number | null>(null);
+    const [processing, setProcessing] = React.useState(false);
     const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         // validate all fields
@@ -34,10 +35,35 @@ const AssessmentCreateSheet = ({open, onClose, onSuccess, schoolId}: IAssessment
             alert("Please enter expected number of candidates");
             return;
         }
-
+        setProcessing(true)
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/assessments/create`, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                role: selectedRole,
+                skills: selectedSkills.join(", "),
+                difficulty: selectedDifficulty,
+                assessment_type: selectedAssessmentFor,
+                candidates: expectedCandidates || 0,
+                org_id: Number(schoolId)
+            })
+        }).then(res => res.json())
+            .catch(err => {
+                console.error("Error creating assessment:", err);
+                alert("Failed to create assessment. Please try again.");
+            }).finally(() => {
+            setProcessing(false);
+            onClose();
+            if (onSuccess) onSuccess();
+        });
     }
     return (
-        <Sheet open={open} onOpenChange={onClose}>
+        <Sheet open={open} onOpenChange={() => {
+            if (processing) return;
+            onClose();
+        }}>
             <SheetContent className={'text-white bg-[#1a1a1a] border-l-[#1c1c1c]'}>
                 <SheetHeader>
                     <SheetTitle>Create Assessment</SheetTitle>
@@ -79,7 +105,7 @@ const AssessmentCreateSheet = ({open, onClose, onSuccess, schoolId}: IAssessment
                                     disabled={!selectedRole}
                                     title={!selectedRole ? "Please select a role first" : ""}
                                     placeholder={'Select a role'}
-                                    options={MOCK_getSkillsForRole(selectedRole || "").map((role) => ({
+                                    options={MOCK_getSkillsForRole(selectedRole || "").map((role: string) => ({
                                         label: role,
                                         value: role
                                     }))}
@@ -136,7 +162,8 @@ const AssessmentCreateSheet = ({open, onClose, onSuccess, schoolId}: IAssessment
                                         onClick={() => setSelectedAssessmentFor("education")}
                                     >
                                         <h2 className={'font-semibold'}>Educational Assessment</h2>
-                                        <p className={'text-sm text-gray-400 mt-1'}>Standardized questions for fair comparison across students</p>
+                                        <p className={'text-sm text-gray-400 mt-1'}>Standardized questions for fair
+                                            comparison across students</p>
                                     </div>
                                     <div
                                         className={
@@ -146,7 +173,8 @@ const AssessmentCreateSheet = ({open, onClose, onSuccess, schoolId}: IAssessment
                                         onClick={() => setSelectedAssessmentFor("elimination")}
                                     >
                                         <h2 className={'font-semibold'}>Recruitment Screening</h2>
-                                        <p className={'text-sm text-gray-400 mt-1'}>Dynamic variants to prevent cheating during hiring</p>
+                                        <p className={'text-sm text-gray-400 mt-1'}>Dynamic variants to prevent cheating
+                                            during hiring</p>
                                     </div>
                                 </div>
                             </div>
@@ -164,8 +192,12 @@ const AssessmentCreateSheet = ({open, onClose, onSuccess, schoolId}: IAssessment
                                 />
                             </div>}
                             <div className="grid grid-cols-1 gap-y-2">
-                                <button className={'px-6 py-2  flex  items-center justify-center bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer'}>
-                                    Start Generation <ArrowRight className={'size-4'} />
+                                <button
+                                    disabled={processing}
+                                    className={cn('px-6 py-2  flex  items-center justify-center bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer', processing && "!cursor-not-allowed")}>
+                                    Start Generation {processing &&
+                                    <LoaderCircle className={'size-4 ml-1 animate-spin'}/> ||
+                                    <ArrowRight className={'size-4'}/>}
                                 </button>
                             </div>
                         </form>
