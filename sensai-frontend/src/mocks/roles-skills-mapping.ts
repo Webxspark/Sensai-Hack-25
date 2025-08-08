@@ -85,4 +85,5 @@ export const SKILL_DIFFICULTIES = {
 };
 
 export const MOCK_ROLES = Object.keys(MOCK_ROLES_SKILLS);
+// @ts-ignore
 export const MOCK_getSkillsForRole = (role: string) => MOCK_ROLES_SKILLS[role] || [];

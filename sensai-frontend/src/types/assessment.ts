@@ -57,7 +57,7 @@ export interface IAssessment {
     type: TAssessmentFor;
     difficulty: TDifficultyLevel;
     candidates: number;
-    questions: IAssessmentQuestion[];
+    questions: IAssessmentQuestion;
     created_at: string;
 }
 
